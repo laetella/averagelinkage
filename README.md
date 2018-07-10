@@ -1,2 +1,3 @@
 # averagelinkage
 use CF Triple array to implement average linkage Hierarchical Clustering.
+error in avg_link_cluster while....

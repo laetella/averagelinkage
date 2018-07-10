@@ -18,7 +18,7 @@ struct edge
     edge& operator = (edge &e){
         start_p = e.start_p;
         end_p = e.end_p;
-        dist = e.end_p;
+        dist = e.dist;
         return *this;
     }
 };
@@ -41,11 +41,12 @@ struct EdgeCluster
 	float dist;
 };
 vector< vector<float> > read_file(const char* filename, char pattern);
-vector< vector<float> > get_graph(vector< vector<float> > data_set);
-vector<edge> prim(vector< vector<float> > data_set, vector< vector<float> > graph);
 int my_comp(edge e1, edge e2);
 void print_vec(const int& nData);
 void write_labels(const char* label_file, vector< int> labels);
+vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge> result_set, int k_threshold);
+void write_mst(const char* mst_file, vector< edge> all_edges);
+vector<edge> prim_mst(vector< vector<float> > data_set);
 
 int main()
 {
@@ -57,13 +58,16 @@ int main()
     cout << "dimension : " << data_set[0].size() << endl;
     cout << "read data from file using time : " << (double)clock()/CLOCKS_PER_SEC - read_data_time << "s. " << endl;
 
-    // const double prim_time = (double)clock()/CLOCKS_PER_SEC;
-    // vector< vector<float> > graph = get_graph(data_set);
-    // vector<edge> mst = prim(data_set,graph);
-	// sort(result_set.begin(), result_set.end(), my_comp);
-    // cout << "compute long edge mst using time : " << (double)clock()/CLOCKS_PER_SEC - prim_time << " s. " << endl;
-    // int k_threshold = 2;		// cluster number
-    // vector<int> labels = sum_link_cluster(data, result_set, k_threshold);
+    const double prim_time = (double)clock()/CLOCKS_PER_SEC;
+    vector<edge> mst = prim_mst(data_set);
+    cout << "mst size: " << mst.size() << endl;
+    const char* mst_file = "../result/data_f_mst.txt";
+    sort(mst.begin(), mst.end(), my_comp);
+     // write_mst(mst_file, mst);
+    cout << "compute mst using time : " << (double)clock()/CLOCKS_PER_SEC - prim_time << " s. " << endl;
+    int k_threshold = 2;		// cluster number
+    cout << "mst[0] : " << mst[0].start_p << "==" << mst[0].end_p << "==" << mst[0].dist << endl;
+    vector<int> labels = avg_link_cluster(data_set, mst, k_threshold);
     // const char* label_file = "../result/data_f.txt";
     // write_labels(label_file, labels);
 	return 0;
@@ -108,6 +112,15 @@ vector< vector<float> > read_file(const char* filename, char pattern)
     return data_set;
 }
 
+void write_mst(const char* mst_file, vector< edge> all_edges)
+{
+    ofstream f_mst(mst_file, ios::out);
+    for(int i = 0; i < all_edges.size(); i++)
+    {
+        f_mst << all_edges[i].start_p << '\t' << all_edges[i].end_p << '\t' << all_edges[i].dist << endl;
+    }
+}
+
 float com_dist(vector<float> vec1, vector<float> vec2)
 {
     float sum = 0.0;
@@ -120,84 +133,96 @@ float com_dist(vector<float> vec1, vector<float> vec2)
     return sqrt(sum);
 }
 
-vector< vector<float> > get_graph(vector< vector<float> > data_set)
+vector<edge> prim_mst(vector< vector<float> > data_set)
 {
-    vector< vector<float> > graph;
-    for(int i = 0; i < data_set.size(); i++)
+    vector<edge> result_set;
+    int start_point = 0, ds_size = data_set.size();
+    vector<int> nodes_finished, nodes_unfinished;
+    nodes_finished.push_back(start_point);
+    vector<float> dist_arr(ds_size);
+    vector<int> edge_arr(ds_size);
+    float temp_dist1 = 1.0e14;
+    int position = -1, i, j;
+    for ( i = 0; i < ds_size; ++i)
     {
-        vector<float> dist_arr;
-        for(int j = 0; j < data_set.size(); j++)
+        if (i == start_point)
         {
-            dist_arr.push_back(com_dist(data_set[i], data_set[j]));
+            edge_arr[i] = -1;
+            dist_arr[i] = 0;
+            continue;
         }
-        graph.push_back(dist_arr);
-    }
-    return graph;
-}
-
-vector<edge> prim(vector< vector<float> > data_set, vector< vector<float> > graph)
-{
-    vector<edge> result_mst;
-    int ds_size = data_set.size();
-    bool flags[ds_size];
-    float low_cost[ds_size];
-    int i = 0, j = 0, k = 0;
-    for(i = 0; i < ds_size; i++)
-    {
-        low_cost[i] = graph[0][i];
-    }
-    int cnt = 0;
-    int start_i = 0, end_i = 0;
-   // cout << "size:" << ds_size << endl;
-    while (cnt < ds_size - 1)
-    {
-       // cout << "in while" << endl;
-        float min_dist = 65535;
-        for(i = 0; i < ds_size; i++)
+        float t = com_dist(data_set[start_point], data_set[i]);
+        dist_arr[i] = t;
+        edge_arr[i] = start_point;
+        if (t < temp_dist1)
         {
-            if (low_cost[i] != 0 && low_cost[i] < min_dist && flags[i] == false)
+            temp_dist1 = t;
+            position = i;
+        }
+    }
+    nodes_finished.push_back(position);
+    edge e;
+    e.start_p = start_point;
+    e.end_p = position;
+    e.dist = temp_dist1;
+    // cout << "add an edge : " << start_point << "==" << position << "==" <<temp_dist1 << endl;
+    result_set.push_back(e);
+    for ( j = 0; j < ds_size; ++j)
+    {
+        if (j != start_point && j != position)
+        {
+            nodes_unfinished.push_back(j); 
+        }
+    }
+    int q_index = 0;
+    while (nodes_unfinished.size() > 0)
+    {
+        float temp_dist2 = 1.0e14;
+        int temp_posit = nodes_finished.size() - 1;
+        for (int i = 0; i < nodes_unfinished.size(); ++i)
+        {
+            int new_node = nodes_finished[temp_posit];
+            float d = com_dist(data_set[new_node], data_set[nodes_unfinished[i]]);
+            if (d < dist_arr[nodes_unfinished[i]])
             {
-                min_dist = low_cost[i];
-                end_i = i;
+                dist_arr[nodes_unfinished[i]] = d;
+                edge_arr[nodes_unfinished[i]] = new_node;
+            }
+            if (dist_arr[nodes_unfinished[i]] < temp_dist2)
+            {
+                temp_dist2 = dist_arr[nodes_unfinished[i]];
+                position = i;
+                q_index = nodes_unfinished[i];
             }
         }
-        flags[end_i] = true;
-        for(j = 0; j < graph[end_i].size(); j++)
-        {
-            if (min_dist == graph[end_i][j])
-            {
-                start_i = j;
-            }
-        }
-        flags[start_i] = true;
-        edge e;
-        e.start_p = start_i;
-        e.end_p = end_i;
-        e.dist = min_dist;
-        result_mst.push_back(e);
-        for(k = 0; k < ds_size; k++)
-        {
-            if (graph[end_i][k] < low_cost[k] && flags[k] == false)
-            {
-                low_cost[k] = graph[end_i][k];
-            }
-        }
-        cnt += 1;
+        nodes_finished.push_back(q_index);
+        nodes_unfinished[position] = nodes_unfinished.back();
+        nodes_unfinished.pop_back();
+        e.start_p = edge_arr[q_index];
+        e.end_p = q_index;
+        e.dist = dist_arr[q_index];
+        result_set.push_back(e);
     }
-    return result_mst;
+    return result_set;
 }
 
 int my_comp(edge e1, edge e2)
 {
-	return e1.dist > e2.dist;
+	return e1.dist < e2.dist;
 }
 
-vector<CFTriple> get_cf(vector< vector<float> > data_set)
+int edge_cluster_comp(EdgeCluster e1, EdgeCluster e2)
+{
+    return e1.dist > e2.dist;
+}
+
+CFTriple get_cf(vector< vector<float> > data_set)
 {
 	CFTriple cf;
 	int ds_size = data_set.size();
 	int dim = data_set[0].size();
 	cf.n = ds_size;
+    cf.ls.insert(cf.ls.begin(), dim, 0);
 	for (int i = 0; i < ds_size; ++i)
 	{
 		for (int j = 0; j < dim; ++j)
@@ -229,38 +254,45 @@ vector<float> operator+(const vector<float>& x, const vector<float>& y)
 
 float get_avg_link(CFTriple c1, CFTriple c2)
 {
-	float numerator = c2.n * c1.ss + c1.n * c2.ss + 2 * c1.ls * c2.ls;
+	float numerator = c2.n * c1.ss + c1.n * c2.ss + 2 * (c1.ls * c2.ls);
 	float denominator = c1.n * c2.n;
 	return sqrt(numerator / denominator);
 }
 
-vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge>& result_set, int k_threshold)
+vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge> result_set, int k_threshold)
 {
-	vector<int> labels;
-	int e = result_set.size();
-	int dimension = data_set[0].size();
-	vector<EdgeCluster> clusters;
-	vector<CFTriple> cfs;
-	vector< vector<CFTriple> > mst_cf;
-	for (int i = 0; i < ds_size; ++i)
-	{
-		cfs.push_back(get_cf(data_set[i]));
-	}
-	for (int j = 0; j < e; ++j)
-	{
-		clusters[j].cluster1.push_back(e[j].start_p);
-		clusters[j].cluster2.push_back(e[j].end_p); 
-		clusters[j].dist = e[j].dist; 
-		vector<CFTriple> temp_cf;
-		temp_cf.push_back(cfs[result_set[j][0]]);
-		temp_cf.push_back(cfs[result_set[j][1]]);
-		mst_cf.push_back(temp_cf);
-	}
+    vector<int> labels;
+    int e = result_set.size();
+    int dimension = data_set[0].size();
+    int ds_size = data_set.size();
+    vector<EdgeCluster> clusters(e);
+    vector<CFTriple> cfs;
+    vector< vector<CFTriple> > mst_cf;
+    int i, j, k;
+    for ( i = 0; i < ds_size; ++i)
+    {
+        vector< vector<float> > temp_data;
+        temp_data.push_back(data_set[i]);
+        cfs.push_back(get_cf(temp_data));
+    }
+    for ( j = 0; j < e; ++j)
+    {
+        // cout << "result_set[j]: " << result_set[j].start_p << "==" << result_set[j].end_p << "==" << result_set[j].dist << endl;
+        clusters[j].cluster1.push_back(result_set[j].start_p);
+        clusters[j].cluster2.push_back(result_set[j].end_p); 
+        clusters[j].dist = result_set[j].dist; 
+        // cout << "compute====" << j << ", " << result_set[j].dist << endl;
+        vector<CFTriple> temp_cf;
+        temp_cf.push_back(cfs[result_set[j].start_p]);
+        temp_cf.push_back(cfs[result_set[j].end_p]);
+        mst_cf.push_back(temp_cf);
+    }
+    cout << "finish init" << endl;
 	CFTriple merge_cf;
 	while (clusters.size() + 1 > k_threshold) 
 	{
 		vector<EdgeCluster>::iterator k = clusters.begin();
-		EdgeCluster te_del = *k; 
+		EdgeCluster to_del = *k; 
         clusters.erase(k);
         vector< vector<CFTriple> >:: iterator it = mst_cf.begin(); 
         vector<CFTriple> temp_cf = *it;
@@ -269,11 +301,11 @@ vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge>& res
         merge_cf.n = temp_cf[0].n + temp_cf[1].n;
         merge_cf.ls = temp_cf[0].ls + temp_cf[1].ls;
         merge_cf.ss = temp_cf[0].ss + temp_cf[1].ss;
-        for (int i = 0; i < clusters.size(); ++i)
+        for ( i = 0; i < clusters.size(); ++i)
         {
             vector<int> cl1 = clusters[i].cluster1;
             vector<int> cl2 = clusters[i].cluster2;
-            for (int j = 0; j < cl1.size(); ++j)
+            for ( j = 0; j < cl1.size(); ++j)
             {
                 vector<int>::iterator result = find(to_del.cluster1.begin(), to_del.cluster1.end(), cl1[j]); //查找3
                 if ( result != to_del.cluster1.end( ) ) 
@@ -283,7 +315,7 @@ vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge>& res
                     break;
                 }
             }
-            for (int j = 0; j < cl1.size(); ++j)
+            for ( j = 0; j < cl1.size(); ++j)
             {
                 vector<int>::iterator result = find(to_del.cluster2.begin(), to_del.cluster2.end(), cl1[j]); //查找3
                 if ( result != to_del.cluster2.end( ) ) 
@@ -295,17 +327,17 @@ vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge>& res
             }
             clusters[i].dist = get_avg_link(mst_cf[i][0], mst_cf[i][1]);
         }
-        sort(clusters.begin(), clusters.end(), my_comp);
+        sort(clusters.begin(), clusters.end(), edge_cluster_comp);
 	}
     int current_label = 0;
-    for (int k = 0; k < clusters.size(); ++k)
+    for ( k = 0; k < clusters.size(); ++k)
     {
-        for (int i = 0; i < clusters[k].cluster1; ++i)
+        for ( i = 0; i < clusters[k].cluster1.size(); ++i)
         {
             labels[clusters[k].cluster1[i]] = current_label;
         }
         current_label += 1;
-        for (int i = 0; i < clusters[k].cluster2; ++i)
+        for ( i = 0; i < clusters[k].cluster2.size(); ++i)
         {
             labels[clusters[k].cluster2[i]] = current_label;
         }
