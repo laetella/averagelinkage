@@ -51,7 +51,8 @@ vector<edge> prim_mst(vector< vector<float> > data_set);
 int main()
 {
 	const double read_data_time = (double)clock()/CLOCKS_PER_SEC;
-    const char* source_file = "../data/data_f.dat";
+    // const char* source_file = "../data/data_f.dat";
+    const char* source_file = "../data/gestalt.dat";
     string name(source_file);
     vector< vector<float> > data_set = read_file(source_file ,',');
     cout << source_file << '\t' << "total data number : " << data_set.size() << endl;
@@ -61,15 +62,15 @@ int main()
     const double prim_time = (double)clock()/CLOCKS_PER_SEC;
     vector<edge> mst = prim_mst(data_set);
     cout << "mst size: " << mst.size() << endl;
-    const char* mst_file = "../result/data_f_mst.txt";
+    const char* mst_file = "../result/gestalt_mst.txt";
     sort(mst.begin(), mst.end(), my_comp);
      // write_mst(mst_file, mst);
     cout << "compute mst using time : " << (double)clock()/CLOCKS_PER_SEC - prim_time << " s. " << endl;
     int k_threshold = 2;		// cluster number
     cout << "mst[0] : " << mst[0].start_p << "==" << mst[0].end_p << "==" << mst[0].dist << endl;
     vector<int> labels = avg_link_cluster(data_set, mst, k_threshold);
-    // const char* label_file = "../result/data_f.txt";
-    // write_labels(label_file, labels);
+    const char* label_file = "../result/data_f_labels.txt";
+    write_labels(label_file, labels);
 	return 0;
 }
 
@@ -255,16 +256,116 @@ vector<float> operator+(const vector<float>& x, const vector<float>& y)
 float get_avg_link(CFTriple c1, CFTriple c2)
 {
 	float numerator = c2.n * c1.ss + c1.n * c2.ss + 2 * (c1.ls * c2.ls);
-	float denominator = c1.n * c2.n;
+	int denominator = c1.n * c2.n;
 	return sqrt(numerator / denominator);
+}
+
+float get_cen_link(CFTriple c1, CFTriple c2)
+{
+    vector<float> vec1(c1.ls.size()), vec2(c1.ls.size());
+    for (int i = 0; i < c1.ls.size(); ++i)
+    {
+        vec1[i] = c1.ls[i] / c1.n;
+        vec2[i] = c2.ls[i] / c2.n;
+    }
+    return com_dist(vec1, vec2);
+}
+
+bool in_cluster(int point, vector< int > cluster)
+{
+    vector< int >::iterator result = find(cluster.begin(), cluster.end(), point); 
+    if ( result != cluster.end( ) ) 
+    {
+        return true;
+    }
+    return false;
+}
+
+float get_sing_link(vector< int > cluster1, vector< int > cluster2, vector<edge> mst)
+{
+    float min_dist = 1.0e14;
+    for (int i = 0; i < mst.size(); ++i)
+    {
+        bool con1 = in_cluster(mst[i].start_p, cluster1) &&  in_cluster(mst[i].end_p, cluster2);
+        bool con2 = in_cluster(mst[i].end_p, cluster1) &&  in_cluster(mst[i].start_p, cluster2);
+        if (con1 || con2)
+        {
+            min_dist = mst[i].dist;
+            break;
+        }
+    }
+    return min_dist;
+}
+
+float get_comp_link(vector< int > cluster1, vector< int > cluster2, vector<edge> mst)
+{
+    float max_dist = 0;
+    for (int i = mst.size(); i > 0; --i)
+    {
+        bool con1 = in_cluster(mst[i].start_p, cluster1) &&  in_cluster(mst[i].end_p, cluster2);
+        bool con2 = in_cluster(mst[i].end_p, cluster1) &&  in_cluster(mst[i].start_p, cluster2);
+        if (con1 || con2)
+        {
+            max_dist = mst[i].dist;
+            break;
+        }
+    }
+    return max_dist;
+}
+
+void print_edge(edge e)
+{
+    cout << "edge: " << e.start_p << "==" << e.end_p << "==" << e.dist << endl;
+}
+
+void print_edge_cluster(EdgeCluster e)
+{
+    ofstream f_label("../result/edgecluster.csv", ios::app);
+    // cout << "EdgeCluster : cluster1===" << endl;
+    for (int i = 0; i < e.cluster1.size(); ++i)
+    {
+        f_label << e.cluster1[i] << " ";
+    }
+    f_label << ",";
+    // cout << endl << "cluster2=====" ;
+    for (int i = 0; i < e.cluster2.size(); ++i)
+    {
+        f_label << e.cluster2[i] << " ";
+    }
+    f_label << "," ;
+    // f_label << endl << "dist====" ;
+    f_label << e.dist << endl;
+}
+
+void print_float_arr(vector<float> array)
+{
+    for (int i = 0; i < array.size(); ++i)
+    {
+        cout << array[i] << " "; 
+    }
+    cout << endl;
+}
+
+void print_mstcf(vector< vector<CFTriple> > mst_cf)
+{
+    for (int i = 0; i < mst_cf.size(); ++i)
+    {
+        for (int j = 0; j < mst_cf[i].size(); ++j)
+        {
+            cout << mst_cf[i][i].n << "==";
+            print_float_arr(mst_cf[i][j].ls);
+            cout << mst_cf[i][j].ss;
+        }
+        cout << endl;
+    }
 }
 
 vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge> result_set, int k_threshold)
 {
-    vector<int> labels;
     int e = result_set.size();
     int dimension = data_set[0].size();
     int ds_size = data_set.size();
+    vector<int> labels(ds_size);
     vector<EdgeCluster> clusters(e);
     vector<CFTriple> cfs;
     vector< vector<CFTriple> > mst_cf;
@@ -277,7 +378,6 @@ vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge> resu
     }
     for ( j = 0; j < e; ++j)
     {
-        // cout << "result_set[j]: " << result_set[j].start_p << "==" << result_set[j].end_p << "==" << result_set[j].dist << endl;
         clusters[j].cluster1.push_back(result_set[j].start_p);
         clusters[j].cluster2.push_back(result_set[j].end_p); 
         clusters[j].dist = result_set[j].dist; 
@@ -287,17 +387,21 @@ vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge> resu
         temp_cf.push_back(cfs[result_set[j].end_p]);
         mst_cf.push_back(temp_cf);
     }
-    cout << "finish init" << endl;
+    print_mstcf(mst_cf);
+    // cout << "finish init" << endl;
 	CFTriple merge_cf;
 	while (clusters.size() + 1 > k_threshold) 
 	{
 		vector<EdgeCluster>::iterator k = clusters.begin();
 		EdgeCluster to_del = *k; 
+        print_edge_cluster(to_del);
         clusters.erase(k);
         vector< vector<CFTriple> >:: iterator it = mst_cf.begin(); 
         vector<CFTriple> temp_cf = *it;
         mst_cf.erase(it);
-        to_del.cluster1.insert(to_del.cluster1.end(),to_del.cluster2.begin(),to_del.cluster2.end());
+        vector<int> merge_cluster;
+        merge_cluster.insert(merge_cluster.end(),to_del.cluster1.begin(),to_del.cluster1.end());
+        merge_cluster.insert(merge_cluster.end(),to_del.cluster2.begin(),to_del.cluster2.end());
         merge_cf.n = temp_cf[0].n + temp_cf[1].n;
         merge_cf.ls = temp_cf[0].ls + temp_cf[1].ls;
         merge_cf.ss = temp_cf[0].ss + temp_cf[1].ss;
@@ -307,42 +411,47 @@ vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge> resu
             vector<int> cl2 = clusters[i].cluster2;
             for ( j = 0; j < cl1.size(); ++j)
             {
-                vector<int>::iterator result = find(to_del.cluster1.begin(), to_del.cluster1.end(), cl1[j]); //查找3
-                if ( result != to_del.cluster1.end( ) ) 
+                if ( in_cluster(cl1[j], to_del.cluster1) ) 
                 {
-                    clusters[i].cluster1 = to_del.cluster1;
+                    clusters[i].cluster1 = merge_cluster;
                     mst_cf[i][0] = merge_cf;
                     break;
                 }
             }
             for ( j = 0; j < cl1.size(); ++j)
             {
-                vector<int>::iterator result = find(to_del.cluster2.begin(), to_del.cluster2.end(), cl1[j]); //查找3
-                if ( result != to_del.cluster2.end( ) ) 
+                if ( in_cluster(cl1[j], to_del.cluster2) ) 
                 {
-                    clusters[i].cluster2 = to_del.cluster2;
+                    clusters[i].cluster2 = merge_cluster;
                     mst_cf[i][1] = merge_cf;
                     break;
                 }
             }
-            clusters[i].dist = get_avg_link(mst_cf[i][0], mst_cf[i][1]);
+            clusters[i].dist = get_sing_link(cl1, cl2, result_set);
+            // clusters[i].dist = get_comp_link(cl1, cl2, result_set);
+            // clusters[i].dist = get_avg_link(mst_cf[i][0], mst_cf[i][1]);
+            // clusters[i].dist = get_cen_link(mst_cf[i][0], mst_cf[i][1]);
         }
         sort(clusters.begin(), clusters.end(), edge_cluster_comp);
 	}
+    // cout << "finish while " << endl;
     int current_label = 0;
     for ( k = 0; k < clusters.size(); ++k)
     {
+        // cout << "clusters size : " << clusters.size() << endl;
         for ( i = 0; i < clusters[k].cluster1.size(); ++i)
         {
             labels[clusters[k].cluster1[i]] = current_label;
         }
         current_label += 1;
+        // cout << "current_label : " << current_label << endl; 
         for ( i = 0; i < clusters[k].cluster2.size(); ++i)
         {
             labels[clusters[k].cluster2[i]] = current_label;
         }
         current_label += 1;
     }
+    // cout << "finish for" << endl;
 	return labels;
 }
 
