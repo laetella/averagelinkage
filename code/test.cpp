@@ -44,6 +44,12 @@ float operator*(const vector<float>& x, const vector<float>& y);
 int main()
 {
     vector<float> vec1,vec2;
+    int b;
+    for (int i = 0; i < 5; ++i)
+    {
+        cout << i << endl;
+        cin>> b ;
+    }
     // vec1.insert(vec1.begin(),3, 2);
     // edge e1,e2,e3;
     // e1.n = 1;
@@ -86,25 +92,27 @@ int main()
     // vec.erase(it);
     // for_each(vec.begin(),vec.end(),print_vec);
     // const double prim_time = (double)clock()/CLOCKS_PER_SEC;
-    vector< vector<float> > cluster;
-    vector<float> point,p1,p2;
-    point.push_back(1.4);
-    point.push_back(1.3);
-    p1.push_back(2.3);
-    p1.push_back(2.4);
-    p2.push_back(3.1);
-    p2.push_back(3.5);
-    cluster.push_back(point);
-    cluster.push_back(p1);
-    cluster.push_back(p2);
-    vector< vector<float> >::iterator result = find(cluster.begin(), cluster.end(), point); //查找3
-    cout << (*result)[0] << endl;
+    // vector< vector<float> > cluster;
+    // vector<float> point,p1,p2;
+    // point.push_back(1.4);
+    // point.push_back(1.3);
+    // p1.push_back(2.3);
+    // p1.push_back(2.4);
+    // p2.push_back(3.1);
+    // p2.push_back(3.5);
+    // cluster.push_back(point);
+    // cluster.push_back(p1);
+    // cluster.push_back(p2);
+    // vector< vector<float> >::iterator result = find(cluster.begin(), cluster.end(), point); //查找3
+    // cout << (*result)[0] << endl;
     // vector<edge> mst = prim(data_set,graph);
 	// sort(result_set.begin(), result_set.end(), my_comp);
     // cout << "compute long edge mst using time : " << (double)clock()/CLOCKS_PER_SEC - prim_time << " s. " << endl;
     // int k_threshold = 2;		// cluster number
     // vector<int> labels = sum_link_cluster(data, result_set, k_threshold);
 	// cout << "hello world!" << endl;
+    // auto smallest = min_element(begin(v), end(v));  
+    // cout << ”min element is ” << *smallest<< “ at position ” << distance(begin(v), smallest) << endl;  
 	return 0;
 }
 
@@ -127,70 +135,79 @@ float operator*(const vector<float>& x, const vector<float>& y)
     return sum;
 }
 
-// vector< vector<float> > get_graph(vector< vector<float> > data_set)
-// {
-//     vector< vector<float> > graph;
-//     for(int i = 0; i < data_set.size(); i++)
-//     {
-//         vector<float> dist_arr;
-//         for(int j = 0; j < data_set.size(); j++)
-//         {
-//             dist_arr.push_back(com_dist(data_set[i], data_set[j]));
-//         }
-//         graph.push_back(dist_arr);
-//     }
-//     return graph;
-// }
 
-// vector<edge> prim(vector< vector<float> > data_set, vector< vector<float> > graph)
-// {
-//     vector<edge> result_mst;
-//     int ds_size = data_set.size();
-//     bool flags(ds_size);
-//     float low_cost(ds_size);
-//     int i = 0, j = 0, k = 0;
-//     for(i = 0; i < ds_size; i++)
-//     {
-//         low_cost[i] = graph[0][i];
-//     }
-//     int cnt = 0;
-//     int start_i = 0, end_i = 0;
-//    // cout << "size:" << ds_size << endl;
-//     while (cnt < ds_size - 1)
-//     {
-//        // cout << "in while" << endl;
-//         float min_dist = 65535;
-//         for(i = 0; i < ds_size; i++)
-//         {
-//             if (low_cost[i] != 0 && low_cost[i] < min_dist && flags[i] == false)
-//             {
-//                 min_dist = low_cost[i];
-//                 end_i = i;
-//             }
-//         }
-//         flags[end_i] = true;
-//         for(j = 0; j < graph[end_i].size(); j++)
-//         {
-//             if (min_dist == graph[end_i][j])
-//             {
-//                 start_i = j;
-//             }
-//         }
-//         flags[start_i] = true;
-//         edge e;
-//         e.start_p = start_i;
-//         e.end_p = end_i;
-//         e.dist = min_dist;
-//         result_mst.push_back(e);
-//         for(k = 0; k < ds_size; k++)
-//         {
-//             if (graph[end_i][k] < low_cost[k] && flags[k] == false)
-//             {
-//                 low_cost[k] = graph[end_i][k];
-//             }
-//         }
-//         cnt += 1;
-//     }
-//     return result_mst;
-// }
+void print_edge(edge e)
+{
+    cout << "edge: " << e.start_p << "==" << e.end_p << "==" << e.dist << endl;
+}
 
+void print_edge_cluster(EdgeCluster e)
+{
+    ofstream f_label("../result/edgecluster.csv", ios::app);
+    // cout << "EdgeCluster : cluster1===" << endl;
+    for (int i = 0; i < e.cluster1.size(); ++i)
+    {
+        f_label << e.cluster1[i] << " ";
+    }
+    f_label << ",";
+    // cout << endl << "cluster2=====" ;
+    for (int i = 0; i < e.cluster2.size(); ++i)
+    {
+        f_label << e.cluster2[i] << " ";
+    }
+    f_label << "," ;
+    // f_label << endl << "dist====" ;
+    f_label << e.dist << endl;
+}
+
+void print_float_arr(vector<float> array)
+{
+    for (int i = 0; i < array.size(); ++i)
+    {
+        cout << array[i] << " "; 
+    }
+    cout << "===";
+}
+
+void print_int(const int& data)
+{
+    cout << data << " ";
+}
+
+void print_cf(vector<CFTriple> cf)
+{
+    for (int i = 0; i < cf.size(); ++i)
+    {
+        cout <<endl << cf[i].n << "==";
+        print_float_arr(cf[i].ls);
+        cout << cf[i].ss;
+    }
+    cout << endl;
+}
+
+void print_mstcf(vector< vector<CFTriple> > mst_cf)
+{
+    for (int i = 0; i < mst_cf.size(); ++i)
+    {
+        for (int j = 0; j < mst_cf[i].size(); ++j)
+        {
+            cout <<endl << mst_cf[i][j].n << "==";
+            print_float_arr(mst_cf[i][j].ls);
+            cout << mst_cf[i][j].ss;
+        }
+        cout << endl;
+    }
+}
+
+void print_clusters(vector<EdgeCluster> clusters)
+{
+    for (i = 0; i < clusters.size(); ++i)
+    {
+        int a;
+        cout << "before while ... " << "cluster[0].cluster1" << endl;
+        for_each(clusters[i].cluster1.begin(),clusters[i].cluster1.end(),print_int);
+        cout << "clusters[i].cluster2: " << endl;
+        for_each(clusters[i].cluster2.begin(),clusters[i].cluster2.end(),print_int);
+        cin >> a;
+    }
+}

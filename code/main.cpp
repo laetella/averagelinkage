@@ -39,6 +39,12 @@ struct EdgeCluster
 	vector<int> cluster1;
 	vector<int> cluster2;
 	float dist;
+    void operator=(const EdgeCluster &ec)
+    { 
+        cluster1.insert(cluster1.begin(), ec.cluster1.begin(), ec.cluster1.end());
+        cluster2.insert(cluster2.begin(), ec.cluster2.begin(), ec.cluster2.end());
+        dist = ec.dist;
+    }
 };
 vector< vector<float> > read_file(const char* filename, char pattern);
 int my_comp(edge e1, edge e2);
@@ -209,7 +215,7 @@ vector<edge> prim_mst(vector< vector<float> > data_set)
 
 int my_comp(edge e1, edge e2)
 {
-	return e1.dist < e2.dist;
+	return e1.dist > e2.dist;
 }
 
 int edge_cluster_comp(EdgeCluster e1, EdgeCluster e2)
@@ -224,6 +230,7 @@ CFTriple get_cf(vector< vector<float> > data_set)
 	int dim = data_set[0].size();
 	cf.n = ds_size;
     cf.ls.insert(cf.ls.begin(), dim, 0);
+    cf.ss = 0;
 	for (int i = 0; i < ds_size; ++i)
 	{
 		for (int j = 0; j < dim; ++j)
@@ -274,7 +281,7 @@ float get_cen_link(CFTriple c1, CFTriple c2)
 bool in_cluster(int point, vector< int > cluster)
 {
     vector< int >::iterator result = find(cluster.begin(), cluster.end(), point); 
-    if ( result != cluster.end( ) ) 
+    if ( result != cluster.end() ) 
     {
         return true;
     }
@@ -313,52 +320,6 @@ float get_comp_link(vector< int > cluster1, vector< int > cluster2, vector<edge>
     return max_dist;
 }
 
-void print_edge(edge e)
-{
-    cout << "edge: " << e.start_p << "==" << e.end_p << "==" << e.dist << endl;
-}
-
-void print_edge_cluster(EdgeCluster e)
-{
-    ofstream f_label("../result/edgecluster.csv", ios::app);
-    // cout << "EdgeCluster : cluster1===" << endl;
-    for (int i = 0; i < e.cluster1.size(); ++i)
-    {
-        f_label << e.cluster1[i] << " ";
-    }
-    f_label << ",";
-    // cout << endl << "cluster2=====" ;
-    for (int i = 0; i < e.cluster2.size(); ++i)
-    {
-        f_label << e.cluster2[i] << " ";
-    }
-    f_label << "," ;
-    // f_label << endl << "dist====" ;
-    f_label << e.dist << endl;
-}
-
-void print_float_arr(vector<float> array)
-{
-    for (int i = 0; i < array.size(); ++i)
-    {
-        cout << array[i] << " "; 
-    }
-    cout << endl;
-}
-
-void print_mstcf(vector< vector<CFTriple> > mst_cf)
-{
-    for (int i = 0; i < mst_cf.size(); ++i)
-    {
-        for (int j = 0; j < mst_cf[i].size(); ++j)
-        {
-            cout << mst_cf[i][i].n << "==";
-            print_float_arr(mst_cf[i][j].ls);
-            cout << mst_cf[i][j].ss;
-        }
-        cout << endl;
-    }
-}
 
 vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge> result_set, int k_threshold)
 {
@@ -381,30 +342,34 @@ vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge> resu
         clusters[j].cluster1.push_back(result_set[j].start_p);
         clusters[j].cluster2.push_back(result_set[j].end_p); 
         clusters[j].dist = result_set[j].dist; 
-        // cout << "compute====" << j << ", " << result_set[j].dist << endl;
         vector<CFTriple> temp_cf;
         temp_cf.push_back(cfs[result_set[j].start_p]);
         temp_cf.push_back(cfs[result_set[j].end_p]);
-        mst_cf.push_back(temp_cf);
+        // print_cf(temp_cf); 
+        mst_cf.push_back(temp_cf) ;
+        // mst_cf[j] = temp_cf;
     }
-    print_mstcf(mst_cf);
+    // print_mstcf(mst_cf);
     // cout << "finish init" << endl;
 	CFTriple merge_cf;
 	while (clusters.size() + 1 > k_threshold) 
 	{
-		vector<EdgeCluster>::iterator k = clusters.begin();
-		EdgeCluster to_del = *k; 
-        print_edge_cluster(to_del);
-        clusters.erase(k);
-        vector< vector<CFTriple> >:: iterator it = mst_cf.begin(); 
-        vector<CFTriple> temp_cf = *it;
-        mst_cf.erase(it);
+		EdgeCluster to_del = clusters[clusters.size()-1]; 
+        clusters.pop_back();
+        // cout << "clusters.size(): " << clusters.size() << endl;
+        // print_edge_cluster(to_del);
+        vector<CFTriple> temp_cf = mst_cf[mst_cf.size()-1] ;
+        mst_cf.pop_back();
         vector<int> merge_cluster;
         merge_cluster.insert(merge_cluster.end(),to_del.cluster1.begin(),to_del.cluster1.end());
         merge_cluster.insert(merge_cluster.end(),to_del.cluster2.begin(),to_del.cluster2.end());
         merge_cf.n = temp_cf[0].n + temp_cf[1].n;
         merge_cf.ls = temp_cf[0].ls + temp_cf[1].ls;
         merge_cf.ss = temp_cf[0].ss + temp_cf[1].ss;
+        // cout <<endl << merge_cf.n << "==";
+        // print_float_arr(merge_cf.ls);
+        // cout << merge_cf.ss << endl;
+        int a; cin >> a;
         for ( i = 0; i < clusters.size(); ++i)
         {
             vector<int> cl1 = clusters[i].cluster1;
@@ -418,9 +383,9 @@ vector<int> avg_link_cluster(vector< vector<float> > data_set, vector<edge> resu
                     break;
                 }
             }
-            for ( j = 0; j < cl1.size(); ++j)
+            for ( j = 0; j < cl2.size(); ++j)
             {
-                if ( in_cluster(cl1[j], to_del.cluster2) ) 
+                if ( in_cluster(cl2[j], to_del.cluster2) ) 
                 {
                     clusters[i].cluster2 = merge_cluster;
                     mst_cf[i][1] = merge_cf;
